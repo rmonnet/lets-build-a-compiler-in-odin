@@ -1,5 +1,9 @@
 # Notes on Crenshaw Let's Build a Compiler
 
+## Crenshaw's Book
+
+I am using the version that have been converted to a nice MDBook [here](https://xmonader.github.io/letsbuildacompiler-pretty).
+
 ## Motorola 68K ASM
 
 There is an assembler for 68K on mac.
