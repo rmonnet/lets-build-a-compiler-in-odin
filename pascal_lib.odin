@@ -65,7 +65,7 @@ They are used to keep the Odin code as close as possible to Crenshaw's original 
 
 // Pascal: string1 + string2 + ...
 // Concatenate the strings
-str_cat :: proc(strs: ..string) -> string {
+st_cat :: proc(strs: ..string) -> string {
 	buf := strings.builder_make(context.temp_allocator)
 	for str in strs {
 		strings.write_string(&buf, str)
@@ -75,8 +75,17 @@ str_cat :: proc(strs: ..string) -> string {
 
 // Pascal: string | char
 // This is used in: string + char + string
-char_to_str :: proc(c: rune) -> string {
+ch_to_st :: proc(c: rune) -> string {
 	buf := strings.builder_make(context.temp_allocator)
 	strings.write_rune(&buf, c)
 	return strings.to_string(buf)
+}
+
+// Pascal: Char in [...]
+// Test if a character is in a list
+ch_in :: proc(c: rune, list: ..rune) -> bool {
+	for cand in list {
+		if c == cand {return true}
+	}
+	return false
 }

@@ -20,7 +20,7 @@ getchar :: proc() {
 // Report an error
 error :: proc(s: string) {
 	writeln()
-	writeln('a', "Error: ", s, ".")
+	writeln(BELL, "Error: ", s, ".")
 }
 
 // ---------------------------------------------------------------------------------------
@@ -33,7 +33,7 @@ abort :: proc(s: string) {
 // ---------------------------------------------------------------------------------------
 // Report What Was Expected
 expected :: proc(s: string) {
-	abort(str_cat(s, " Expected"))
+	abort(st_cat(s, " Expected"))
 }
 
 // ---------------------------------------------------------------------------------------
@@ -42,7 +42,7 @@ match :: proc(x: rune) {
 	if look == x {
 		getchar()
 	} else {
-		expected(str_cat("'", char_to_str(x), "'"))
+		expected(st_cat("'", ch_to_st(x), "'"))
 	}
 }
 
@@ -96,8 +96,108 @@ init :: proc() {
 	getchar()
 }
 
+// Odin doesn't need forward declarations
+// expression :: proc() ---
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate a Math Factor
+factor :: proc() {
+	// <factor> ::= (<expression>)
+	if look == '(' {
+		match('(')
+		expression()
+		match(')')
+	} else {
+		emitln(st_cat("MOVE #", ch_to_st(get_num()), ", D0"))
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// Recognize and Translate a Multiply
+multiply :: proc() {
+	match('*')
+	factor()
+	emitln("MULS (SP)+, D0")
+}
+
+// ---------------------------------------------------------------------------------------
+// Recognize and Translate a Divide
+divide :: proc() {
+	match('/')
+	factor()
+	emitln("MOVE (SP)+,D1")
+	emitln("EXG D0,D1") // <-- Crucial fix: Swap them so A is in D0
+	emitln("EXT.L D0") // <-- Crucial fix: Preps 32-bit dividend
+	emitln("DIVS D1,D0") // Calculates D0 (A) / D1 (B)
+}
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate a Math Term
+term :: proc() {
+	// <term> ::= <factor>  [ <mulop> <factor ]*
+	factor()
+	for ch_in(look, '*', '/') {
+		emitln("MOVE D0, -(SP)")
+		switch look {
+		case '*':
+			multiply()
+		case '/':
+			divide()
+		case:
+			expected("Mulop")
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// Recognize and Translate an Add
+add :: proc() {
+	match('+')
+	term()
+	emitln("ADD (SP)+, D0")
+}
+
+// ---------------------------------------------------------------------------------------
+// Recognize and Translate a Subtract
+subtract :: proc() {
+	match('-')
+	term()
+	// TODO: why are we not using the same technic as in divide?
+	emitln("SUB (SP)+, D0")
+	emitln("NEG D0")
+}
+
+// ---------------------------------------------------------------------------------------
+// Recognize an Addop
+is_addop :: proc(c: rune) -> bool {
+	return ch_in(c, '+', '-')
+}
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate a Math Expression
+expression :: proc() {
+	// <expression> ::= <term> [<addop> <term>]*
+	if is_addop(look) {
+		emitln("CLR DO")
+	} else {
+		term()
+	}
+	for is_addop(look) {
+		emitln("MOVE D0, -(SP)")
+		switch look {
+		case '+':
+			add()
+		case '-':
+			subtract()
+		case:
+			expected("Addop")
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------------------
 // Main Program
 main :: proc() {
 	init()
+	expression()
 }

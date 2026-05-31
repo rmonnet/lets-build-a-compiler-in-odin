@@ -1,0 +1,5 @@
+debug_build
+debug_build.dSYM/
+lets-build-a-compiler
+*.exe
+*.pdb

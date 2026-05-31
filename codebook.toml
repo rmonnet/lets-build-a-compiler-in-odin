@@ -1,1 +1,13 @@
-words = ["Crenshaw's"]
+words = [
+    "Crenshaw's",
+    "emitln",
+    "getchar",
+    "scat",
+    "ctos",
+    "Addop",
+    "strs",
+    "MULS",
+    "Mulop",
+    "EXG",
+    "CLR",
+]
