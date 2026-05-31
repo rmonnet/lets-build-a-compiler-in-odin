@@ -23,4 +23,13 @@ The Odin code is copyrighted (c) 2026 Robert Monnet.
 
 ## Code Organization
 
-Each chapter has its own sub-directory, since Odin packages correspond to a directory, you can just `cd` into the appropriate chapter directory and type `odin run .` to run the main driver for that chapter.
+The code can be found under the repository root.
+- `compiler.odin` contains the compiler.
+- `pascal_lib.odin` contains Odin emulation for the procedures from the original Pascal library.
+
+Each chapter correspond to a git tag and can be retrieved by typing `git checkout <chapter>`.
+- `01-Introduction`
+- `02-Expression-Parsing`
+- ...
+
+If you plan to play with the code, the best way to keep your changes isolated to a chapter is tro create your own branch: `git checkout -b <review-chapter> <chapter>`.
