@@ -47,6 +47,7 @@ writeln :: proc(fragments: ..any) {
 // Pascal:: Halt() or Halt(errCode)
 // Exit the program back to the OS
 halt :: proc(err_code := 0) {
+	drain_term_buffer()
 	os.exit(err_code)
 }
 
@@ -89,3 +90,20 @@ ch_in :: proc(c: rune, list: ..rune) -> bool {
 	}
 	return false
 }
+
+// This routine is only needed for the Git for Windows bash.
+// because it doesn't properly drain the current terminal buffer.
+//
+// Without calling this routine, the compiler may trip on leftover
+// characters from the previous activation and show an error message
+// hinting at bad input syntax when you haven't entered anything yet.
+// I haven't seen this behavior on any other terminal emulator so far.
+drain_term_buffer :: proc() {
+	buf: [1]byte
+	for {
+		n, err := os.read(os.stdin, buf[:])
+		if err != nil || n == 0 {break}
+		if buf[0] == '\n' {break}
+	}
+}
+

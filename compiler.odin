@@ -200,4 +200,6 @@ expression :: proc() {
 main :: proc() {
 	init()
 	expression()
+	drain_term_buffer()
 }
+
