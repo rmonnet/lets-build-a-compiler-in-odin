@@ -15,38 +15,94 @@ We, however, account for Odin difference:
 - Pascal `char` are translated to Odin `rune`
 - Pascal `var` parameters, when obviously meant as output as converted to return values.
 - Names follow the Odin convention (snake_case).
+
+We want to be able to transparently redirect `stdin` to a `string` and `stdout` to a
+`strings.Builder` for testing and this to be thread safe so we introduce an `IO` object
+that takes care of it. There is one independent IO object per test.
 */
+
+IO :: struct {
+	// The following fields are used to wire tests to redirect IO to a string and a Builder.
+	test:       bool,
+	input:      string,
+	input_next: int,
+	output:     ^strings.Builder,
+	halted:     bool,
+}
+
+// Deallocate the memory used for test IO.
+io_destroy :: proc(io: ^IO) {
+	if !io.test {
+		panic("io_destroy() should only be called when wire_for_test() was called.")
+	}
+	delete(io.input)
+	strings.builder_destroy(io.output)
+	free(io.output)
+}
+
+io_output :: proc(io: IO) -> string {
+	if !io.test {
+		panic("io_output should only be called when wire_for_test() was called.")
+	}
+	// We make a copy since the caller is expected to cleanup returned strings.
+	// (Assumed transfer of ownership)
+	return strings.clone(strings.to_string(io.output^))
+}
+
+// Wire the Pascal Library IO to take input from a `string`
+// and output to a `strings.Builder` for use in Odin tests.
+//
+wire_for_test :: proc(io: ^IO, input: string) {
+	io.test = true
+	io.input = strings.clone(input)
+	io.output = new(strings.Builder)
+	strings.builder_init(io.output)
+}
 
 // Pascal: Read(var v1, v2, ...: AnySimpleType)
 // Reads from standard input.
-read :: proc() -> rune {
-
-	buf: [1]byte
-	n, err := os.read(os.stdin, buf[:])
-	if err != nil || n == 0 {
-		return 0
+read :: proc(io: ^IO) -> rune {
+	if io.test {
+		if io.input_next >= len(io.input) {return 0}
+		io.input_next += 1
+		return rune(io.input[io.input_next - 1])
+	} else {
+		buf: [1]byte
+		n, err := os.read(os.stdin, buf[:])
+		if err != nil || n == 0 {return 0}
+		return rune(buf[0])
 	}
-	return rune(buf[0])
 }
 
 // Pascal: Write(p1, p2, ...:AnyTypeOrLiteral)
 // Write the arguments to standard output.
-write :: proc(fragments: ..any) {
-	for f in fragments {
-		fmt.print(f)
+write :: proc(io: ^IO, strs: ..string) {
+	if io.test {
+		if io.halted {return}
+		for str in strs {
+			strings.write_string(io.output, str)
+		}
+	} else {
+		for str in strs {
+			fmt.print(str)
+		}
 	}
 }
 
 // Pascal: Writeln(p1, p2, ...:AnyTypeOrLiteral)
 // Write the arguments to standard output followed by a newline.
-writeln :: proc(fragments: ..any) {
-	write(..fragments)
-	write('\n')
+writeln :: proc(io: ^IO, strs: ..string) {
+	write(io, ..strs)
+	write(io, "\n")
 }
 
 // Pascal:: Halt() or Halt(errCode)
 // Exit the program back to the OS
-halt :: proc(err_code := 0) {
+halt :: proc(io: ^IO, err_code := 0) {
+	if io.test {
+		io.halted = true
+		return
+	}
 	drain_term_buffer()
 	os.exit(err_code)
 }
@@ -66,7 +122,7 @@ They are used to keep the Odin code as close as possible to Crenshaw's original 
 
 // Pascal: string1 + string2 + ...
 // Concatenate the strings
-st_cat :: proc(strs: ..string) -> string {
+str_cat :: proc(strs: ..string) -> string {
 	buf := strings.builder_make(context.temp_allocator)
 	for str in strs {
 		strings.write_string(&buf, str)
@@ -76,7 +132,7 @@ st_cat :: proc(strs: ..string) -> string {
 
 // Pascal: string | char
 // This is used in: string + char + string
-ch_to_st :: proc(c: rune) -> string {
+to_str :: proc(c: rune) -> string {
 	buf := strings.builder_make(context.temp_allocator)
 	strings.write_rune(&buf, c)
 	return strings.to_string(buf)
@@ -84,7 +140,7 @@ ch_to_st :: proc(c: rune) -> string {
 
 // Pascal: Char in [...]
 // Test if a character is in a list
-ch_in :: proc(c: rune, list: ..rune) -> bool {
+in_set :: proc(c: rune, list: ..rune) -> bool {
 	for cand in list {
 		if c == cand {return true}
 	}
