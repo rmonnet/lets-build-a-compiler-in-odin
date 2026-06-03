@@ -1,6 +1,7 @@
 package interpreter
 
 import p "../pascal"
+import "core:crypto/aead"
 
 /*
 Cradle code
@@ -103,10 +104,13 @@ match :: proc(c: ^Cradle, ch: rune) {
 // ---------------------------------------------------------------------------------------
 // Get a Number
 get_num :: proc(c: ^Cradle) -> int {
+	value := 0
 	if !is_digit(c.look) {expected(c, "Integer")}
-	num := int(c.look - '0')
-	get_char(c)
-	return num
+	for is_digit(c.look) {
+		value = 10 * value + int(c.look - '0')
+		get_char(c)
+	}
+	return value
 }
 
 /*
@@ -114,22 +118,39 @@ The Interpreter code
 */
 
 // ---------------------------------------------------------------------------------------
-// Parse and Translate an Expression
+// Parse and Compute a Term
+term :: proc(c: ^Cradle) -> int {
+	value := get_num(c)
+	for p.in_set(c.look, '*', '/') {
+		switch c.look {
+		case '*':
+			match(c, '*')
+			value = value * get_num(c)
+		case '/':
+			match(c, '/')
+			value = value / get_num(c)
+		}
+	}
+	return value
+}
+
+// ---------------------------------------------------------------------------------------
+// Parse and Compute an Expression
 expression :: proc(c: ^Cradle) -> int {
 	value: int
 	if is_addop(c.look) {
 		value = 0
 	} else {
-		value = get_num(c)
+		value = term(c)
 	}
 	for is_addop(c.look) {
 		switch c.look {
 		case '+':
 			match(c, '+')
-			value = value + get_num(c)
+			value = value + term(c)
 		case '-':
 			match(c, '-')
-			value = value - get_num(c)
+			value = value - term(c)
 		}
 	}
 	return value
