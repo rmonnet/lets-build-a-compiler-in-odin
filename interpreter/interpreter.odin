@@ -1,6 +1,7 @@
 package interpreter
 
 import p "../pascal"
+import "core:crypto"
 import "core:crypto/aead"
 
 /*
@@ -118,17 +119,35 @@ The Interpreter code
 */
 
 // ---------------------------------------------------------------------------------------
+// Odin doesn't need forward declarations.
+// expression :: proc(c: ^Cradle) -> int
+
+// ---------------------------------------------------------------------------------------
+// Parse and Compute a Factor
+factor :: proc(c: ^Cradle) -> int {
+	value: int
+	if c.look == '(' {
+		match(c, '(')
+		value = expression(c)
+		match(c, ')')
+	} else {
+		value = get_num(c)
+	}
+	return value
+}
+
+// ---------------------------------------------------------------------------------------
 // Parse and Compute a Term
 term :: proc(c: ^Cradle) -> int {
-	value := get_num(c)
+	value := factor(c)
 	for p.in_set(c.look, '*', '/') {
 		switch c.look {
 		case '*':
 			match(c, '*')
-			value = value * get_num(c)
+			value = value * factor(c)
 		case '/':
 			match(c, '/')
-			value = value / get_num(c)
+			value = value / factor(c)
 		}
 	}
 	return value
@@ -139,6 +158,8 @@ term :: proc(c: ^Cradle) -> int {
 expression :: proc(c: ^Cradle) -> int {
 	value: int
 	if is_addop(c.look) {
+		// Note how this gives us unary +/- for free.
+		// It appends a 0 in front of any add/sub operator.
 		value = 0
 	} else {
 		value = term(c)

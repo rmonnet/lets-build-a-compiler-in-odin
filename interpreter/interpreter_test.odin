@@ -64,3 +64,9 @@ test_multi_digit_number :: proc(t: ^testing.T) {
 	expect_output(t, "123*456", "56088\n")
 }
 
+@(test)
+test_paren :: proc(t: ^testing.T) {
+
+	expect_output(t, "2*(3+4)", "14\n")
+}
+
