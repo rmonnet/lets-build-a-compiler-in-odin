@@ -68,14 +68,13 @@ Emulated functions from the Pascal library.
 // Reads from standard input.
 read :: proc(io: ^IO) -> rune {
 	if io.test {
-		if io.input_next >= len(io.input) {return 0}
+		if io.input_next >= len(io.input) {return EOF}
 		io.input_next += 1
 		return rune(io.input[io.input_next - 1])
 	} else {
 		buf: [1]byte
 		n, err := os.read(os.stdin, buf[:])
-		//fmt.println("read:", err, n, buf[0])
-		if err != nil || n == 0 {return 0}
+		if err != nil || n == 0 {return EOF}
 		return rune(buf[0])
 	}
 }
@@ -129,6 +128,9 @@ They are used to keep the Odin code as close as possible to Crenshaw's original 
 // Pascal: string1 + string2 + ...
 // Concatenate the strings
 str_cat :: proc(strs: ..string) -> string {
+	// Use the temporary allocator since we don't want to deal
+	// with de-allocation in the compiler to stay close to the
+	// original Pascal code.
 	buf := strings.builder_make(context.temp_allocator)
 	for str in strs {
 		strings.write_string(&buf, str)
@@ -136,9 +138,38 @@ str_cat :: proc(strs: ..string) -> string {
 	return strings.to_string(buf)
 }
 
+
+// Pascal: String := String + Char
+// This is a little tricky so we define a Pascal String type
+// with an append() function to add the next character and a to_str
+// function to convert back to an Odin string.
+PString :: struct {
+	buf:  strings.Builder,
+	init: bool,
+}
+
+pstr_append :: proc(s: ^PString, ch: rune) {
+	if !s.init {
+		// Use the temporary allocator since we don't want to deal
+		// with de-allocation in the compiler to stay close to the
+		// original Pascal code.
+		s.buf = strings.builder_make(context.temp_allocator)
+		s.init = true
+	}
+	strings.write_rune(&s.buf, ch)
+}
+
+pstr_to_str :: proc(s: PString) -> string {
+	if !s.init {return ""}
+	return strings.to_string(s.buf)
+}
+
 // Pascal: string | char
 // This is used in: string + char + string
 to_str :: proc(c: rune) -> string {
+	// Use the temporary allocator since we don't want to deal
+	// with de-allocation in the compiler to stay close to the
+	// original Pascal code.
 	buf := strings.builder_make(context.temp_allocator)
 	strings.write_rune(&buf, c)
 	return strings.to_string(buf)

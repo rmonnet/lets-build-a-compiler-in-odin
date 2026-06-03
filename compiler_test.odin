@@ -73,7 +73,7 @@ test_div :: proc(t: ^testing.T) {
     MOVE #2, D0
     MOVE (SP)+, D1
     EXG D0, D1
-    EXT.L D0
+    EXS.L D0
     DIVS D1, D0
     LEA Z(PC)A0
     MOVE D0, (A0)
@@ -206,6 +206,26 @@ test_line_fully_consumed :: proc(t: ^testing.T) {
     MOVE D0, (A0)
 
 Error: Newline Expected.
+`
+	expect_output(t, input, expected)
+}
+
+@(test)
+test_multichar_identifier_and_number :: proc(t: ^testing.T) {
+	input :: "abc=123"
+	expected :: `    MOVE #123, D0
+    LEA ABC(PC)A0
+    MOVE D0, (A0)
+`
+	expect_output(t, input, expected)
+}
+
+@(test)
+test_whitespace :: proc(t: ^testing.T) {
+	input :: "\t abc\t =\t 123"
+	expected :: `    MOVE #123, D0
+    LEA ABC(PC)A0
+    MOVE D0, (A0)
 `
 	expect_output(t, input, expected)
 }

@@ -1,13 +1,21 @@
 package compiler
 
+/*
+Cradle code
+*/
+
 // ---------------------------------------------------------------------------------------
 // Constant Declarations
 
 TAB :: '\t'
+CR :: '\r'
+EOF :: 0
 TAB_STR :: "    "
 
 // ---------------------------------------------------------------------------------------
 // Variables Declarations
+// We wrap the compiler state into a compiler object
+// to allow multi-threaded Odin tests.
 Compiler :: struct {
 	look: rune,
 	io:   IO,
@@ -42,16 +50,6 @@ expected :: proc(c: ^Compiler, what: string) {
 }
 
 // ---------------------------------------------------------------------------------------
-// Match a Specific Input Character
-match :: proc(c: ^Compiler, ch: rune) {
-	if c.look == ch {
-		get_char(c)
-	} else {
-		expected(c, str_cat("'", to_str(ch), "'"))
-	}
-}
-
-// ---------------------------------------------------------------------------------------
 // Recognize an Alpha Character
 is_alpha :: proc(ch: rune) -> bool {
 	uc := upcase(ch)
@@ -65,21 +63,66 @@ is_digit :: proc(ch: rune) -> bool {
 }
 
 // ---------------------------------------------------------------------------------------
+// Recognize an Alphanumeric
+is_alnum :: proc(ch: rune) -> bool {
+	return is_alpha(ch) || is_digit(ch)
+}
+
+// ---------------------------------------------------------------------------------------
+// Recognize an Addop
+is_addop :: proc(c: rune) -> bool {
+	return in_set(c, '+', '-')
+}
+
+// ---------------------------------------------------------------------------------------
+// Recognize White Space
+is_white :: proc(c: rune) -> bool {
+	return in_set(c, ' ', TAB)
+}
+
+// ---------------------------------------------------------------------------------------
+// Skip Over Leading White Space
+skip_white :: proc(c: ^Compiler) {
+	for is_white(c.look) {
+		get_char(c)
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// Match a Specific Input Character
+match :: proc(c: ^Compiler, ch: rune) {
+	if c.look != ch {
+		expected(c, str_cat("'", to_str(ch), "'"))
+		return
+	}
+	get_char(c)
+	skip_white(c)
+}
+
+// ---------------------------------------------------------------------------------------
 // Get an Identifier
 get_name :: proc(c: ^Compiler) -> string {
+	token: PString
 	if !is_alpha(c.look) {expected(c, "Name")}
-	name := upcase(c.look)
-	get_char(c)
-	return to_str(name)
+	for is_alnum(c.look) {
+		pstr_append(&token, upcase(c.look))
+		get_char(c)
+	}
+	skip_white(c)
+	return pstr_to_str(token)
 }
 
 // ---------------------------------------------------------------------------------------
 // Get a Number
 get_num :: proc(c: ^Compiler) -> string {
+	value: PString
 	if !is_digit(c.look) {expected(c, "Integer")}
-	num := c.look
-	get_char(c)
-	return to_str(num)
+	for is_digit(c.look) {
+		pstr_append(&value, c.look)
+		get_char(c)
+	}
+	skip_white(c)
+	return pstr_to_str(value)
 }
 
 // ---------------------------------------------------------------------------------------
@@ -96,14 +139,9 @@ emitln :: proc(c: ^Compiler, strs: ..string) {
 	writeln(&c.io)
 }
 
-// ---------------------------------------------------------------------------------------
-// Initialize
-init :: proc(c: ^Compiler) {
-	get_char(c)
-}
-
-// Odin doesn't need forward declarations
-// expression :: proc() ---
+/*
+The Parser code
+*/
 
 // ---------------------------------------------------------------------------------------
 // Parse and Translate an Identifier
@@ -117,6 +155,9 @@ ident :: proc(c: ^Compiler) {
 		emitln(c, "MOVE ", name, "(PC), D0")
 	}
 }
+
+// Odin doesn't need forward declarations
+// expression :: proc() ---
 
 // ---------------------------------------------------------------------------------------
 // Parse and Translate a Math Factor
@@ -148,7 +189,7 @@ divide :: proc(c: ^Compiler) {
 	factor(c)
 	emitln(c, "MOVE (SP)+, D1")
 	emitln(c, "EXG D0, D1") // <-- Crucial fix: Swap them so A is in D0
-	emitln(c, "EXT.L D0") // <-- Crucial fix: Preps 32-bit dividend
+	emitln(c, "EXS.L D0") // <-- Crucial fix: Preps 32-bit dividend
 	emitln(c, "DIVS D1, D0") // Calculates D0 (A) / D1 (B)
 }
 
@@ -187,13 +228,7 @@ subtract :: proc(c: ^Compiler) {
 }
 
 // ---------------------------------------------------------------------------------------
-// Recognize an Addop
-is_addop :: proc(c: rune) -> bool {
-	return in_set(c, '+', '-')
-}
-
-// ---------------------------------------------------------------------------------------
-// Parse and Translate a Math Expression
+// Parse and Translate an Expression
 expression :: proc(c: ^Compiler) {
 	// <expression> ::= [<unaryop>] <term> [<addop> <term>]*
 
@@ -228,6 +263,13 @@ assignment :: proc(c: ^Compiler) {
 }
 
 // ---------------------------------------------------------------------------------------
+// Initialize
+init :: proc(c: ^Compiler) {
+	get_char(c)
+	skip_white(c)
+}
+
+// ---------------------------------------------------------------------------------------
 // The Compiler Itself
 compile :: proc(c: ^Compiler) {
 	init(c)
@@ -235,7 +277,7 @@ compile :: proc(c: ^Compiler) {
 	// On Windows, a line ends with "...\r\n", so the last character read is '\r'.
 	// On MacOs/Linux, a line ends with "...\n" so the last character read is 0.
 	// Once we were properly skip spaces, they should both end in 0.
-	if c.look != '\r' && c.look != 0 {
+	if c.look != CR && c.look != EOF {
 		expected(c, "Newline")
 	}
 }
