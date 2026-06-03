@@ -5,7 +5,7 @@ import "core:testing"
 
 expect_output :: proc(t: ^testing.T, input: string, expected: string, loc := #caller_location) {
 
-	c: Compiler
+	c: Cradle
 	p.wire_for_test(&c.io, input)
 	defer p.io_destroy(&c.io)
 

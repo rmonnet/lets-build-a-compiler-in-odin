@@ -83,24 +83,33 @@ read :: proc(io: ^IO) -> rune {
 
 // Pascal: Write(p1, p2, ...:AnyTypeOrLiteral)
 // Write the arguments to standard output.
-write :: proc(io: ^IO, strs: ..string) {
+write :: proc(io: ^IO, args: ..any) {
 	if io.test {
 		if io.halted {return}
-		for str in strs {
-			strings.write_string(io.output, str)
+		for arg in args {
+			switch a in arg {
+			case string:
+				strings.write_string(io.output, a)
+			case rune:
+				strings.write_rune(io.output, a)
+			case int:
+				strings.write_int(io.output, a)
+			case:
+				strings.write_string(io.output, "<invalid type>")
+			}
 		}
 	} else {
-		for str in strs {
-			fmt.print(str)
+		for arg in args {
+			fmt.print(arg)
 		}
 	}
 }
 
 // Pascal: Writeln(p1, p2, ...:AnyTypeOrLiteral)
 // Write the arguments to standard output followed by a newline.
-writeln :: proc(io: ^IO, strs: ..string) {
-	write(io, ..strs)
-	write(io, "\n")
+writeln :: proc(io: ^IO, args: ..any) {
+	write(io, ..args)
+	write(io, '\n')
 }
 
 // Pascal:: Halt() or Halt(errCode)

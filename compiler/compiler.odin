@@ -17,36 +17,36 @@ TAB_STR :: "    "
 // Variables Declarations
 // We wrap the compiler state into a compiler object
 // to allow multi-threaded Odin tests.
-Compiler :: struct {
+Cradle :: struct {
 	look: rune,
 	io:   p.IO,
 }
 
 // ---------------------------------------------------------------------------------------
 // Read New Character From Input Stream
-get_char :: proc(c: ^Compiler) {
+get_char :: proc(c: ^Cradle) {
 	c.look = p.read(&c.io)
 }
 
 // ---------------------------------------------------------------------------------------
 // Report an error
-error :: proc(c: ^Compiler, strs: ..string) {
+error :: proc(c: ^Cradle, args: ..any) {
 	p.writeln(&c.io)
 	p.write(&c.io, "Error: ")
-	p.write(&c.io, ..strs)
+	p.write(&c.io, ..args)
 	p.writeln(&c.io, ".")
 }
 
 // ---------------------------------------------------------------------------------------
 // Report Error and Halt
-abort :: proc(c: ^Compiler, strs: ..string) {
-	error(c, ..strs)
+abort :: proc(c: ^Cradle, args: ..any) {
+	error(c, ..args)
 	p.halt(&c.io)
 }
 
 // ---------------------------------------------------------------------------------------
 // Report What Was Expected
-expected :: proc(c: ^Compiler, what: string) {
+expected :: proc(c: ^Cradle, what: string) {
 	abort(c, what, " Expected")
 }
 
@@ -83,7 +83,7 @@ is_white :: proc(c: rune) -> bool {
 
 // ---------------------------------------------------------------------------------------
 // Skip Over Leading White Space
-skip_white :: proc(c: ^Compiler) {
+skip_white :: proc(c: ^Cradle) {
 	for is_white(c.look) {
 		get_char(c)
 	}
@@ -91,7 +91,7 @@ skip_white :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Match a Specific Input Character
-match :: proc(c: ^Compiler, ch: rune) {
+match :: proc(c: ^Cradle, ch: rune) {
 	if c.look != ch {
 		expected(c, p.str_cat("'", p.to_str(ch), "'"))
 		return
@@ -102,7 +102,7 @@ match :: proc(c: ^Compiler, ch: rune) {
 
 // ---------------------------------------------------------------------------------------
 // Get an Identifier
-get_name :: proc(c: ^Compiler) -> string {
+get_name :: proc(c: ^Cradle) -> string {
 	token: p.PString
 	if !is_alpha(c.look) {expected(c, "Name")}
 	for is_alnum(c.look) {
@@ -115,7 +115,7 @@ get_name :: proc(c: ^Compiler) -> string {
 
 // ---------------------------------------------------------------------------------------
 // Get a Number
-get_num :: proc(c: ^Compiler) -> string {
+get_num :: proc(c: ^Cradle) -> string {
 	value: p.PString
 	if !is_digit(c.look) {expected(c, "Integer")}
 	for is_digit(c.look) {
@@ -128,25 +128,25 @@ get_num :: proc(c: ^Compiler) -> string {
 
 // ---------------------------------------------------------------------------------------
 // Output a String with Tab
-emit :: proc(c: ^Compiler, strs: ..string) {
+emit :: proc(c: ^Cradle, args: ..any) {
 	p.write(&c.io, TAB_STR)
-	p.write(&c.io, ..strs)
+	p.write(&c.io, ..args)
 }
 
 // ---------------------------------------------------------------------------------------
 // Output a String with Tab and CRLF
-emitln :: proc(c: ^Compiler, strs: ..string) {
-	emit(c, ..strs)
+emitln :: proc(c: ^Cradle, args: ..any) {
+	emit(c, ..args)
 	p.writeln(&c.io)
 }
 
 /*
-The Parser code
+The Compiler code
 */
 
 // ---------------------------------------------------------------------------------------
 // Parse and Translate an Identifier
-ident :: proc(c: ^Compiler) {
+ident :: proc(c: ^Cradle) {
 	name := get_name(c)
 	if c.look == '(' {
 		match(c, '(')
@@ -162,7 +162,7 @@ ident :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Parse and Translate a Math Factor
-factor :: proc(c: ^Compiler) {
+factor :: proc(c: ^Cradle) {
 	// <factor> ::= <number> | (<expression>) | <variable>
 	if c.look == '(' {
 		match(c, '(')
@@ -177,7 +177,7 @@ factor :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Recognize and Translate a Multiply
-multiply :: proc(c: ^Compiler) {
+multiply :: proc(c: ^Cradle) {
 	match(c, '*')
 	factor(c)
 	emitln(c, "MULS (SP)+, D0")
@@ -185,7 +185,7 @@ multiply :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Recognize and Translate a Divide
-divide :: proc(c: ^Compiler) {
+divide :: proc(c: ^Cradle) {
 	match(c, '/')
 	factor(c)
 	emitln(c, "MOVE (SP)+, D1")
@@ -196,7 +196,7 @@ divide :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Parse and Translate a Math Term
-term :: proc(c: ^Compiler) {
+term :: proc(c: ^Cradle) {
 	// <term> ::= <factor>  [ <mulop> <factor ]*
 	factor(c)
 	for p.in_set(c.look, '*', '/') {
@@ -212,7 +212,7 @@ term :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Recognize and Translate an Add
-add :: proc(c: ^Compiler) {
+add :: proc(c: ^Cradle) {
 	match(c, '+')
 	term(c)
 	emitln(c, "ADD (SP)+, D0")
@@ -220,7 +220,7 @@ add :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Recognize and Translate a Subtract
-subtract :: proc(c: ^Compiler) {
+subtract :: proc(c: ^Cradle) {
 	match(c, '-')
 	term(c)
 	// TODO: why are we not using the same technic as in divide?
@@ -230,7 +230,7 @@ subtract :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Parse and Translate an Expression
-expression :: proc(c: ^Compiler) {
+expression :: proc(c: ^Cradle) {
 	// <expression> ::= [<unaryop>] <term> [<addop> <term>]*
 
 	// Note: The unary ops are only allowed at the beginning of an expression in this compiler.
@@ -255,7 +255,7 @@ expression :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Parse and Translate an Assignment Statement
-assignment :: proc(c: ^Compiler) {
+assignment :: proc(c: ^Cradle) {
 	name := get_name(c)
 	match(c, '=')
 	expression(c)
@@ -265,14 +265,14 @@ assignment :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Initialize
-init :: proc(c: ^Compiler) {
+init :: proc(c: ^Cradle) {
 	get_char(c)
 	skip_white(c)
 }
 
 // ---------------------------------------------------------------------------------------
 // The Compiler Itself
-compile :: proc(c: ^Compiler) {
+compile :: proc(c: ^Cradle) {
 	init(c)
 	assignment(c)
 	// On Windows, a line ends with "...\r\n", so the last character read is '\r'.
@@ -286,7 +286,7 @@ compile :: proc(c: ^Compiler) {
 // ---------------------------------------------------------------------------------------
 // Main Program
 main :: proc() {
-	c: Compiler
+	c: Cradle
 	compile(&c)
 	// Only needed when reading from stdin on Git for Windows terminal.
 	p.drain_term_buffer()

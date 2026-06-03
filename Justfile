@@ -22,6 +22,7 @@ _list-recipes:
 # Run all the tests in the project
 test:
     -odin test compiler -vet -debug -disallow-do -define:ODIN_TEST_SHORT_LOGS=true -define:ODIN_TEST_LOG_LEVEL=warning
+    -odin test interpreter -vet -debug -disallow-do -define:ODIN_TEST_SHORT_LOGS=true -define:ODIN_TEST_LOG_LEVEL=warning
 
 # Provides system information
 @system-info:
