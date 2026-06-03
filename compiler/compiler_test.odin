@@ -1,15 +1,16 @@
 package compiler
 
+import p "../pascal"
 import "core:testing"
 
 expect_output :: proc(t: ^testing.T, input: string, expected: string, loc := #caller_location) {
 
 	c: Compiler
-	wire_for_test(&c.io, input)
-	defer io_destroy(&c.io)
+	p.wire_for_test(&c.io, input)
+	defer p.io_destroy(&c.io)
 
 	compile(&c)
-	actual := io_output(c.io)
+	actual := p.io_output(c.io)
 	defer delete(actual)
 
 	testing.expect_value(t, actual, expected, loc = loc)

@@ -1,5 +1,5 @@
 // This file contains Odin equivalent for Crenshaw's Pascal Library Procedures.
-package compiler
+package pascal
 
 import "core:fmt"
 import "core:os"
@@ -20,6 +20,8 @@ We want to be able to transparently redirect `stdin` to a `string` and `stdout` 
 `strings.Builder` for testing and this to be thread safe so we introduce an `IO` object
 that takes care of it. There is one independent IO object per test.
 */
+
+EOF :: 0
 
 IO :: struct {
 	// The following fields are used to wire tests to redirect IO to a string and a Builder.
@@ -198,5 +200,10 @@ drain_term_buffer :: proc() {
 		if err != nil || n == 0 {break}
 		if buf[0] == '\n' {break}
 	}
+}
+
+// Dummy main() procedure to avoid vet warning
+main :: proc() {
+	// Put code to debug here.
 }
 

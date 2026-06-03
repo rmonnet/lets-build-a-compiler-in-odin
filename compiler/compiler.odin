@@ -1,5 +1,7 @@
 package compiler
 
+import p "../pascal"
+
 /*
 Cradle code
 */
@@ -9,7 +11,6 @@ Cradle code
 
 TAB :: '\t'
 CR :: '\r'
-EOF :: 0
 TAB_STR :: "    "
 
 // ---------------------------------------------------------------------------------------
@@ -18,29 +19,29 @@ TAB_STR :: "    "
 // to allow multi-threaded Odin tests.
 Compiler :: struct {
 	look: rune,
-	io:   IO,
+	io:   p.IO,
 }
 
 // ---------------------------------------------------------------------------------------
 // Read New Character From Input Stream
 get_char :: proc(c: ^Compiler) {
-	c.look = read(&c.io)
+	c.look = p.read(&c.io)
 }
 
 // ---------------------------------------------------------------------------------------
 // Report an error
 error :: proc(c: ^Compiler, strs: ..string) {
-	writeln(&c.io)
-	write(&c.io, "Error: ")
-	write(&c.io, ..strs)
-	writeln(&c.io, ".")
+	p.writeln(&c.io)
+	p.write(&c.io, "Error: ")
+	p.write(&c.io, ..strs)
+	p.writeln(&c.io, ".")
 }
 
 // ---------------------------------------------------------------------------------------
 // Report Error and Halt
 abort :: proc(c: ^Compiler, strs: ..string) {
 	error(c, ..strs)
-	halt(&c.io)
+	p.halt(&c.io)
 }
 
 // ---------------------------------------------------------------------------------------
@@ -52,7 +53,7 @@ expected :: proc(c: ^Compiler, what: string) {
 // ---------------------------------------------------------------------------------------
 // Recognize an Alpha Character
 is_alpha :: proc(ch: rune) -> bool {
-	uc := upcase(ch)
+	uc := p.upcase(ch)
 	return 'A' <= uc && uc <= 'Z'
 }
 
@@ -71,13 +72,13 @@ is_alnum :: proc(ch: rune) -> bool {
 // ---------------------------------------------------------------------------------------
 // Recognize an Addop
 is_addop :: proc(c: rune) -> bool {
-	return in_set(c, '+', '-')
+	return p.in_set(c, '+', '-')
 }
 
 // ---------------------------------------------------------------------------------------
 // Recognize White Space
 is_white :: proc(c: rune) -> bool {
-	return in_set(c, ' ', TAB)
+	return p.in_set(c, ' ', TAB)
 }
 
 // ---------------------------------------------------------------------------------------
@@ -92,7 +93,7 @@ skip_white :: proc(c: ^Compiler) {
 // Match a Specific Input Character
 match :: proc(c: ^Compiler, ch: rune) {
 	if c.look != ch {
-		expected(c, str_cat("'", to_str(ch), "'"))
+		expected(c, p.str_cat("'", p.to_str(ch), "'"))
 		return
 	}
 	get_char(c)
@@ -102,41 +103,41 @@ match :: proc(c: ^Compiler, ch: rune) {
 // ---------------------------------------------------------------------------------------
 // Get an Identifier
 get_name :: proc(c: ^Compiler) -> string {
-	token: PString
+	token: p.PString
 	if !is_alpha(c.look) {expected(c, "Name")}
 	for is_alnum(c.look) {
-		pstr_append(&token, upcase(c.look))
+		p.pstr_append(&token, p.upcase(c.look))
 		get_char(c)
 	}
 	skip_white(c)
-	return pstr_to_str(token)
+	return p.pstr_to_str(token)
 }
 
 // ---------------------------------------------------------------------------------------
 // Get a Number
 get_num :: proc(c: ^Compiler) -> string {
-	value: PString
+	value: p.PString
 	if !is_digit(c.look) {expected(c, "Integer")}
 	for is_digit(c.look) {
-		pstr_append(&value, c.look)
+		p.pstr_append(&value, c.look)
 		get_char(c)
 	}
 	skip_white(c)
-	return pstr_to_str(value)
+	return p.pstr_to_str(value)
 }
 
 // ---------------------------------------------------------------------------------------
 // Output a String with Tab
 emit :: proc(c: ^Compiler, strs: ..string) {
-	write(&c.io, TAB_STR)
-	write(&c.io, ..strs)
+	p.write(&c.io, TAB_STR)
+	p.write(&c.io, ..strs)
 }
 
 // ---------------------------------------------------------------------------------------
 // Output a String with Tab and CRLF
 emitln :: proc(c: ^Compiler, strs: ..string) {
 	emit(c, ..strs)
-	writeln(&c.io)
+	p.writeln(&c.io)
 }
 
 /*
@@ -198,7 +199,7 @@ divide :: proc(c: ^Compiler) {
 term :: proc(c: ^Compiler) {
 	// <term> ::= <factor>  [ <mulop> <factor ]*
 	factor(c)
-	for in_set(c.look, '*', '/') {
+	for p.in_set(c.look, '*', '/') {
 		emitln(c, "MOVE D0, -(SP)")
 		switch c.look {
 		case '*':
@@ -277,7 +278,7 @@ compile :: proc(c: ^Compiler) {
 	// On Windows, a line ends with "...\r\n", so the last character read is '\r'.
 	// On MacOs/Linux, a line ends with "...\n" so the last character read is 0.
 	// Once we were properly skip spaces, they should both end in 0.
-	if c.look != CR && c.look != EOF {
+	if c.look != CR && c.look != p.EOF {
 		expected(c, "Newline")
 	}
 }
@@ -288,6 +289,6 @@ main :: proc() {
 	c: Compiler
 	compile(&c)
 	// Only needed when reading from stdin on Git for Windows terminal.
-	drain_term_buffer()
+	p.drain_term_buffer()
 }
 

@@ -1,4 +1,4 @@
-cradle := "./cradle" + (if os() == "windows" { ".exe" } else { "" })
+compiler := "./crc" + (if os() == "windows" { ".exe" } else { "" })
 
 # List all the recipes.'
 _list-recipes:
@@ -7,16 +7,21 @@ _list-recipes:
 # Count the SLOCs in the project
 @slocs:
     echo ""; echo "Compiler"
-    tokei .
+    tokei compiler
+    echo ""; echo "Pascal Library"
+    tokei pascal
+    echo ""; echo "Interpreter"
+    tokei interpreter
 
 # Build the compiler
 @build:
-    rm -f {{ cradle }}
-    odin build . -out:{{ cradle }} -debug
+    rm -f {{ compiler }}
+    odin build compiler -out:{{ compiler }} -debug
+    echo "type " {{ compiler }} "to run the Crenshaw compiler."
 
 # Run all the tests in the project
-test: build
-    odin test . -vet -debug -disallow-do -define:ODIN_TEST_SHORT_LOGS=true -define:ODIN_TEST_LOG_LEVEL=warning
+test:
+    -odin test compiler -vet -debug -disallow-do -define:ODIN_TEST_SHORT_LOGS=true -define:ODIN_TEST_LOG_LEVEL=warning
 
 # Provides system information
 @system-info:
@@ -32,4 +37,5 @@ test: build
 
 # Vet the code in the project
 @vet:
-    -odin check . -vet
+    -odin check pascal -vet
+    -odin check compiler -vet
