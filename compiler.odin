@@ -21,22 +21,24 @@ get_char :: proc(c: ^Compiler) {
 
 // ---------------------------------------------------------------------------------------
 // Report an error
-error :: proc(c: ^Compiler, msg: string) {
+error :: proc(c: ^Compiler, strs: ..string) {
 	writeln(&c.io)
-	writeln(&c.io, str_cat("Error: ", msg, "."))
+	write(&c.io, "Error: ")
+	write(&c.io, ..strs)
+	writeln(&c.io, ".")
 }
 
 // ---------------------------------------------------------------------------------------
 // Report Error and Halt
-abort :: proc(c: ^Compiler, msg: string) {
-	error(c, msg)
+abort :: proc(c: ^Compiler, strs: ..string) {
+	error(c, ..strs)
 	halt(&c.io)
 }
 
 // ---------------------------------------------------------------------------------------
 // Report What Was Expected
 expected :: proc(c: ^Compiler, what: string) {
-	abort(c, str_cat(what, " Expected"))
+	abort(c, what, " Expected")
 }
 
 // ---------------------------------------------------------------------------------------
@@ -64,32 +66,33 @@ is_digit :: proc(ch: rune) -> bool {
 
 // ---------------------------------------------------------------------------------------
 // Get an Identifier
-get_name :: proc(c: ^Compiler) -> rune {
+get_name :: proc(c: ^Compiler) -> string {
 	if !is_alpha(c.look) {expected(c, "Name")}
 	name := upcase(c.look)
 	get_char(c)
-	return name
+	return to_str(name)
 }
 
 // ---------------------------------------------------------------------------------------
 // Get a Number
-get_num :: proc(c: ^Compiler) -> rune {
+get_num :: proc(c: ^Compiler) -> string {
 	if !is_digit(c.look) {expected(c, "Integer")}
 	num := c.look
 	get_char(c)
-	return num
+	return to_str(num)
 }
 
 // ---------------------------------------------------------------------------------------
 // Output a String with Tab
-emit :: proc(c: ^Compiler, s: string) {
-	write(&c.io, TAB_STR, s)
+emit :: proc(c: ^Compiler, strs: ..string) {
+	write(&c.io, TAB_STR)
+	write(&c.io, ..strs)
 }
 
 // ---------------------------------------------------------------------------------------
 // Output a String with Tab and CRLF
-emitln :: proc(c: ^Compiler, s: string) {
-	emit(c, s)
+emitln :: proc(c: ^Compiler, strs: ..string) {
+	emit(c, ..strs)
 	writeln(&c.io)
 }
 
@@ -103,15 +106,30 @@ init :: proc(c: ^Compiler) {
 // expression :: proc() ---
 
 // ---------------------------------------------------------------------------------------
+// Parse and Translate an Identifier
+ident :: proc(c: ^Compiler) {
+	name := get_name(c)
+	if c.look == '(' {
+		match(c, '(')
+		match(c, ')')
+		emitln(c, "BSR ", name)
+	} else {
+		emitln(c, "MOVE ", name, "(PC), D0")
+	}
+}
+
+// ---------------------------------------------------------------------------------------
 // Parse and Translate a Math Factor
 factor :: proc(c: ^Compiler) {
-	// <factor> ::= (<expression>)
+	// <factor> ::= <number> | (<expression>) | <variable>
 	if c.look == '(' {
 		match(c, '(')
 		expression(c)
 		match(c, ')')
+	} else if is_alpha(c.look) {
+		ident(c)
 	} else {
-		emitln(c, str_cat("MOVE #", to_str(get_num(c)), ", D0"))
+		emitln(c, "MOVE #", get_num(c), ", D0")
 	}
 }
 
@@ -146,8 +164,6 @@ term :: proc(c: ^Compiler) {
 			multiply(c)
 		case '/':
 			divide(c)
-		case:
-			expected(c, "Mulop")
 		}
 	}
 }
@@ -197,8 +213,6 @@ expression :: proc(c: ^Compiler) {
 			add(c)
 		case '-':
 			subtract(c)
-		case:
-			expected(c, "Addop")
 		}
 	}
 }
@@ -208,6 +222,12 @@ expression :: proc(c: ^Compiler) {
 compile :: proc(c: ^Compiler) {
 	init(c)
 	expression(c)
+	// On Windows, a line ends with "...\r\n", so the last character read is '\r'.
+	// On MacOs/Linux, a line ends with "...\n" so the last character read is 0.
+	// Once we were properly skip spaces, they should both end in 0.
+	if c.look != '\r' && c.look != 0 {
+		expected(c, "Newline")
+	}
 }
 
 // ---------------------------------------------------------------------------------------

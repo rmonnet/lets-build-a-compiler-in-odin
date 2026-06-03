@@ -74,6 +74,7 @@ read :: proc(io: ^IO) -> rune {
 	} else {
 		buf: [1]byte
 		n, err := os.read(os.stdin, buf[:])
+		//fmt.println("read:", err, n, buf[0])
 		if err != nil || n == 0 {return 0}
 		return rune(buf[0])
 	}
