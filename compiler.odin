@@ -4,8 +4,7 @@ package compiler
 // Constant Declarations
 
 TAB :: '\t'
-TAB_STR :: "\t"
-BELL_STR :: "\a"
+TAB_STR :: "    "
 
 // ---------------------------------------------------------------------------------------
 // Variables Declarations
@@ -187,7 +186,7 @@ expression :: proc(c: ^Compiler) {
 	// If we wanted to allow "2+-1", we would need to move unary ops at the beginning of factor
 	// to increase their priority.
 	if is_addop(c.look) {
-		emitln(c, "CLR DO")
+		emitln(c, "CLR D0")
 	} else {
 		term(c)
 	}

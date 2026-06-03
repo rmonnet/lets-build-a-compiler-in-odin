@@ -27,6 +27,7 @@ IO :: struct {
 	input:      string,
 	input_next: int,
 	output:     ^strings.Builder,
+	// Simulate os.exit() when under test.
 	halted:     bool,
 }
 
@@ -58,6 +59,10 @@ wire_for_test :: proc(io: ^IO, input: string) {
 	io.output = new(strings.Builder)
 	strings.builder_init(io.output)
 }
+
+/*
+Emulated functions from the Pascal library.
+*/
 
 // Pascal: Read(var v1, v2, ...: AnySimpleType)
 // Reads from standard input.
