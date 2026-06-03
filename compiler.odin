@@ -218,10 +218,20 @@ expression :: proc(c: ^Compiler) {
 }
 
 // ---------------------------------------------------------------------------------------
+// Parse and Translate an Assignment Statement
+assignment :: proc(c: ^Compiler) {
+	name := get_name(c)
+	match(c, '=')
+	expression(c)
+	emitln(c, "LEA ", name, "(PC)A0")
+	emitln(c, "MOVE D0, (A0)")
+}
+
+// ---------------------------------------------------------------------------------------
 // The Compiler Itself
 compile :: proc(c: ^Compiler) {
 	init(c)
-	expression(c)
+	assignment(c)
 	// On Windows, a line ends with "...\r\n", so the last character read is '\r'.
 	// On MacOs/Linux, a line ends with "...\n" so the last character read is 0.
 	// Once we were properly skip spaces, they should both end in 0.
