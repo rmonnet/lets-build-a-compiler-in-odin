@@ -1,7 +1,11 @@
 words = [
+    "ADDQ",
     "Addop",
+    "BEQ",
+    "BGT",
     "CLR",
     "Crenshaw's",
+    "DBRA",
     "EOF",
     "EXG",
     "MULS",

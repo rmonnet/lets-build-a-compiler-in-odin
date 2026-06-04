@@ -2,6 +2,8 @@
 package control
 
 import p "../pascal"
+import "core:fmt"
+import "core:text/regex/parser"
 
 /*
 Cradle code
@@ -155,7 +157,7 @@ The Control code
 // ---------------------------------------------------------------------------------------
 // Generate a Unique Label
 new_label :: proc(c: ^Cradle) -> string {
-	c.l_count += 1
+	c.l_count = c.l_count + 1
 	return fmt.tprintf("L%d", c.l_count - 1)
 }
 
@@ -174,11 +176,145 @@ other :: proc(c: ^Cradle) -> string {
 }
 
 // ---------------------------------------------------------------------------------------
+// In Odin we don't need a forward definition for Block
+// block:: proc(c:^Cradle) ---
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate a Boolean Condition
+// Dummy version
+condition :: proc(c: ^Cradle) {
+	emitln(c, "<condition>")
+}
+
+// ---------------------------------------------------------------------------------------
+// Recognize and Translate an IF Construct
+do_if :: proc(c: ^Cradle) {
+	match(c, 'i')
+	condition(c)
+	l1 := new_label(c)
+	l2 := l1
+	emitln(c, "BEQ ", l1)
+	block(c)
+	// We use 'l' for the 'ELSE' keyword (for now)
+	if c.look == 'l' {
+		match(c, 'l')
+		l2 = new_label(c)
+		emitln(c, "BRA ", l2)
+		post_label(c, l1)
+		block(c)
+	}
+	match(c, 'e')
+	post_label(c, l2)
+}
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate a While Statement
+do_while :: proc(c: ^Cradle) {
+	match(c, 'w')
+	l1 := new_label(c)
+	l2 := new_label(c)
+	post_label(c, l1)
+	condition(c)
+	emitln(c, "BEQ ", l2)
+	block(c)
+	match(c, 'e')
+	emitln(c, "BRA ", l1)
+	post_label(c, l2)
+}
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate a (infinite) Loop Statement
+do_loop :: proc(c: ^Cradle) {
+	match(c, 'p')
+	l := new_label(c)
+	post_label(c, l)
+	block(c)
+	match(c, 'e')
+	emitln(c, "BRA ", l)
+}
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate a Repeat Statement
+do_repeat :: proc(c: ^Cradle) {
+	match(c, 'r')
+	l := new_label(c)
+	post_label(c, l)
+	block(c)
+	match(c, 'u')
+	condition(c)
+	emitln(c, "BEQ ", l)
+}
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate a For Statement
+do_for :: proc(c: ^Cradle) {
+	match(c, 'f')
+	l1 := new_label(c)
+	l2 := new_label(c)
+	name := get_name(c)
+	match(c, '=')
+	expression(c)
+	emitln(c, "SUBQ #1, D0")
+	emitln(c, "LEA ", name, "(PC), A0")
+	emitln(c, "MOVE D0, (A0)")
+	expression(c)
+	emitln(c, "MOVE D0, -(SP)")
+	post_label(c, l1)
+	emitln(c, "LEA ", name, "(PC), A0")
+	emitln(c, "MOVE (A0), D0")
+	emitln(c, "ADDQ #1, D0")
+	emitln(c, "MOVE D0, (A0)")
+	emitln(c, "CMP (SP), D0")
+	emitln(c, "BGT ", l2)
+	block(c)
+	match(c, 'e')
+	emitln(c, "BRA ", l1)
+	post_label(c, l2)
+	emitln(c, "ADDQ #2, SP")
+}
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate the Do Statement (simplify for loop, counting N times)
+do_do :: proc(c: ^Cradle) {
+	match(c, 'd')
+	l := new_label(c)
+	expression(c)
+	emitln(c, "SUBQ #1, D0")
+	post_label(c, l)
+	emitln(c, "MOVE D0, -(SP)")
+	block(c)
+	emitln(c, "MOVE (SP)+, D0")
+	emitln(c, "DBRA D0, ", l)
+}
+
+// ---------------------------------------------------------------------------------------
+// Parse and Translate an Expression
+// dummy procedure
+expression :: proc(c: ^Cradle) {
+	emitln(c, "<expr>")
+}
+
+// ---------------------------------------------------------------------------------------
 // Recognize and Translate a Statement Block
 block :: proc(c: ^Cradle) {
-	for !p.in_set(c.look, 'e') {
-		name := other(c)
-		if name == "" {break}
+	loop: for !p.in_set(c.look, 'e', 'l', 'u') {
+		switch c.look {
+		case 'i':
+			do_if(c)
+		case 'w':
+			do_while(c)
+		case 'p':
+			do_loop(c)
+		case 'r':
+			do_repeat(c)
+		case 'f':
+			do_for(c)
+		case 'd':
+			do_do(c)
+		case:
+			name := other(c)
+			if name == "" {break loop}
+		}
 	}
 }
 // ---------------------------------------------------------------------------------------
