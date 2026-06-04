@@ -3,6 +3,7 @@ package interpreter
 import p "../pascal"
 import "core:crypto"
 import "core:crypto/aead"
+import "core:thread"
 
 /*
 Cradle code
@@ -13,15 +14,23 @@ Cradle code
 
 TAB :: '\t'
 CR :: '\r'
+LF :: '\n'
 TAB_STR :: "    "
+
+// ---------------------------------------------------------------------------------------
+// Define a Table of Variables where Variables names are a single uppercase character.
+// Note: In Odin, an array of int is initialized to 0 so we don't need the `init_table`
+// procedure.
+Table :: [26]int
 
 // ---------------------------------------------------------------------------------------
 // Variables Declarations
 // We wrap the compiler state into a compiler object
 // to allow multi-threaded Odin tests.
 Cradle :: struct {
-	look: rune,
-	io:   p.IO,
+	look:      rune,
+	io:        p.IO,
+	variables: Table,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -103,6 +112,16 @@ match :: proc(c: ^Cradle, ch: rune) {
 }
 
 // ---------------------------------------------------------------------------------------
+// Get an Identifier
+get_name :: proc(c: ^Cradle) -> rune {
+	if !is_alpha(c.look) {expected(c, "Name")}
+	ident := p.upcase(c.look)
+	get_char(c)
+	skip_white(c)
+	return ident
+}
+
+// ---------------------------------------------------------------------------------------
 // Get a Number
 get_num :: proc(c: ^Cradle) -> int {
 	value := 0
@@ -111,6 +130,7 @@ get_num :: proc(c: ^Cradle) -> int {
 		value = 10 * value + int(c.look - '0')
 		get_char(c)
 	}
+	skip_white(c)
 	return value
 }
 
@@ -130,6 +150,8 @@ factor :: proc(c: ^Cradle) -> int {
 		match(c, '(')
 		value = expression(c)
 		match(c, ')')
+	} else if is_alpha(c.look) {
+		value = c.variables[get_name(c) - 'A']
 	} else {
 		value = get_num(c)
 	}
@@ -178,21 +200,83 @@ expression :: proc(c: ^Cradle) -> int {
 }
 
 // ---------------------------------------------------------------------------------------
+// Parse and Compute an Assignment
+// This version returns the variable assigned to.
+assignment :: proc(c: ^Cradle) -> rune {
+	var := get_name(c)
+	match(c, '=')
+	c.variables[var - 'A'] = expression(c)
+	return var
+}
+
+// ---------------------------------------------------------------------------------------
 // Initialize
 init :: proc(c: ^Cradle) {
+	// Since c.variables is initialized by Odin to 0, there is no need to call init_table().
 	get_char(c)
+	skip_white(c)
+}
+
+// ---------------------------------------------------------------------------------------
+// Recognize and Skip Over a Newline
+new_line :: proc(c: ^Cradle) {
+	if c.look == CR {
+		get_char(c)
+		match(c, LF)
+	} else if c.look == LF {
+		get_char(c)
+	}
+}
+
+// ---------------------------------------------------------------------------------------
+// Input Routine
+input :: proc(c: ^Cradle) -> rune {
+	match(c, '?')
+	// Note: Crenshaw's original code use Pascal's `Read()` which is a powerful
+	// procedure that can read (and convert) pretty much anything.
+	// In this case, Crenshaw has it read and parse an integer.
+	// We will instead use the Parser facilities to explicitly read
+	// an integer.
+	var := get_name(c)
+	if !is_digit(c.look) {
+		expected(c, "Number")
+		return var
+	}
+	c.variables[var - 'A'] = get_num(c)
+	return var
+}
+
+// ---------------------------------------------------------------------------------------
+// Output Routine
+output :: proc(c: ^Cradle) {
+	match(c, '!')
+	p.writeln(&c.io, c.variables[get_name(c) - 'A'])
 }
 
 // ---------------------------------------------------------------------------------------
 // The Interpreter Itself
 interpret :: proc(c: ^Cradle) {
+	// Note: This interpreter doesn't handle properly the case "c+1".
+	// This would require a look-ahead to check if the character after the
+	// variable name is a '=' operator.
+	// We will leave it alone for now since there is more in the following chapters
+	// and this was not in scope of Crenshaw's original example.
 	init(c)
-	p.writeln(&c.io, expression(c))
-	// On Windows, a line ends with "...\r\n", so the last character read is '\r'.
-	// On MacOs/Linux, a line ends with "...\n" so the last character read is 0.
-	// Once we were properly skip spaces, they should both end in 0.
-	if c.look != CR && c.look != p.EOF {
-		expected(c, "Newline")
+	for c.look != '.' {
+		switch {
+		case c.look == '?':
+			var := input(c)
+			p.writeln(&c.io, "> ", var, " = ", c.variables[var - 'A'])
+		case c.look == '!':
+			output(c)
+		case is_alpha(c.look):
+			var := assignment(c)
+			p.writeln(&c.io, "> ", var, " = ", c.variables[var - 'A'])
+		case:
+			value := expression(c)
+			p.writeln(&c.io, "> ", value)
+		}
+		new_line(c)
 	}
 }
 

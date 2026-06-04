@@ -67,6 +67,7 @@ Emulated functions from the Pascal library.
 */
 
 // Pascal: Read(var v1, v2, ...: AnySimpleType)
+// This variant only reads a single character
 // Reads from standard input.
 read :: proc(io: ^IO) -> rune {
 	if io.test {
